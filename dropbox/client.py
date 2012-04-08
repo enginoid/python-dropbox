@@ -148,15 +148,18 @@ class DropboxClient(object):
 
         return RESTClient.PUT(url, file_obj, headers)
 
-    def get_file(self, from_path, rev=None):
+    def get_file(self, from_path, rev=None, byte_range=None):
         """Download a file.
 
         Unlike most other calls, get_file returns a raw HTTPResponse with the connection open.
         You should call .read() and perform any processing you need, then close the HTTPResponse.
 
-        Args:
-            from_path: The path to the file to be downloaded.
-            rev: A previous rev value of the file to be downloaded. [optional]
+        Arguments:
+          - ``from_path``: The path to the file to be downloaded.
+          - ``rev``: A previous rev value of the file to be downloaded.
+          - ``byte_range``: A tuple ``(end, start)`` indicating the byte offsets of the
+            file to retrieve.  For example, ``(0, 499)`` gets the first 500 bytes of the
+            file.
 
         Returns:
             An httplib.HTTPResponse that is the result of the request.
@@ -174,19 +177,25 @@ class DropboxClient(object):
             params['rev'] = rev
 
         url, params, headers = self.request(path, params, method='GET', content_server=True)
+        if byte_range:
+            headers['Range'] = 'bytes={0}-{1}'.format(*byte_range)
+
         return RESTClient.request("GET", url, headers=headers, raw_response=True)
 
-    def get_file_and_metadata(self, from_path, rev=None):
+    def get_file_and_metadata(self, from_path, rev=None, byte_range=None):
         """Download a file alongwith its metadata.
 
         Acts as a thin wrapper around get_file() (see get_file() comments for
         more details)
 
-        Args:
-            from_path: The path to the file to be downloaded.
-            rev: A previous rev value of the file to be downloaded. [optional]
+        Arguments:
+          - ``from_path``: The path to the file to be downloaded.
+          - ``rev``: A previous rev value of the file to be downloaded.
+          - ``byte_range``: A tuple ``(end, start)`` indicating the byte offsets of the
+            file to retrieve.  For example, ``(0, 499)`` gets the first 500 bytes of the
+            file.
 
-        Returns:
+        Returns: A tuple with two items.
             - An httplib.HTTPResponse that is the result of the request.
             - A dictionary containing the metadata of the file (see
               https://www.dropbox.com/developers/reference/api#metadata for details).
@@ -197,7 +206,7 @@ class DropboxClient(object):
                404: No file was found at the given path, or the file that was there was deleted.
                200: Request was okay but response was malformed in some way.
         """
-        file_res = self.get_file(from_path, rev)
+        file_res = self.get_file(from_path, rev, byte_range)
         metadata = DropboxClient.__parse_metadata_as_dict(file_res)
 
         return file_res, metadata
